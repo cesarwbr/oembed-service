@@ -1,8 +1,8 @@
 use crate::errors::OEmbedError;
 use crate::models::{OEmbedRequest, OEmbedResponse, ProviderConfig};
-use log::info;
 use reqwest::Client;
 use scraper::{Html, Selector};
+use serde_json;
 use std::collections::HashMap;
 use url::Url;
 
@@ -37,6 +37,14 @@ impl Provider {
             ProviderConfig {
                 oembed_endpoint: Some(Url::parse("https://vimeo.com/api/oembed.json").unwrap()),
                 url_patterns: vec!["vimeo.com/".to_string()],
+            },
+        );
+
+        providers.insert(
+            "tiktok.com".to_string(),
+            ProviderConfig {
+                oembed_endpoint: Some(Url::parse("https://www.tiktok.com/oembed").unwrap()),
+                url_patterns: vec!["tiktok.com/".to_string()],
             },
         );
 
@@ -123,7 +131,14 @@ impl Provider {
             .ok()?;
 
         if response.status().is_success() {
-            response.json::<OEmbedResponse>().await.ok()
+            // Get the response text first for logging
+            let response_text = response.text().await.ok()?;
+
+            // Try to parse the JSON using reqwest's built-in functionality
+            match serde_json::from_str::<OEmbedResponse>(&response_text) {
+                Ok(json) => Some(json),
+                Err(_) => None,
+            }
         } else {
             None
         }
