@@ -1,5 +1,6 @@
 use crate::errors::OEmbedError;
 use crate::models::{OEmbedRequest, OEmbedResponse, ProviderConfig};
+use log::info;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use std::collections::HashMap;
@@ -22,11 +23,20 @@ impl Provider {
                 url_patterns: vec!["youtube.com/watch?v=".to_string(), "youtu.be/".to_string()],
             },
         );
+
         providers.insert(
             "x.com".to_string(),
             ProviderConfig {
                 oembed_endpoint: Some(Url::parse("https://publish.twitter.com/oembed").unwrap()),
                 url_patterns: vec!["x.com/".to_string(), "twitter.com/".to_string()],
+            },
+        );
+
+        providers.insert(
+            "vimeo.com".to_string(),
+            ProviderConfig {
+                oembed_endpoint: Some(Url::parse("https://vimeo.com/api/oembed.json").unwrap()),
+                url_patterns: vec!["vimeo.com/".to_string()],
             },
         );
 
@@ -58,12 +68,9 @@ impl Provider {
     ) -> Result<Option<OEmbedResponse>, OEmbedError> {
         let parsed_url =
             Url::parse(&request.url).map_err(|e| OEmbedError::InvalidUrl(e.to_string()))?;
-        println!("parsed_url: {:?}", parsed_url);
         let host = parsed_url
             .host_str()
             .ok_or_else(|| OEmbedError::InvalidUrl("No host in URL".to_string()))?;
-
-        println!("host: {:?}", host);
 
         for (domain, provider) in &self.providers {
             if host.contains(domain)
@@ -105,7 +112,6 @@ impl Provider {
     }
 
     async fn fetch_oembed(&self, endpoint: &Url, url: &Url) -> Option<OEmbedResponse> {
-        println!("fetch_oembed: {:?} {:?}", endpoint.as_str(), url.as_str());
         let query_params = vec![("url", url.as_str()), ("format", "json")];
 
         let response = self
@@ -115,8 +121,6 @@ impl Provider {
             .send()
             .await
             .ok()?;
-
-        println!("response: {:?}", response.status());
 
         if response.status().is_success() {
             response.json::<OEmbedResponse>().await.ok()
