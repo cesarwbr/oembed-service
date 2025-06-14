@@ -2,6 +2,7 @@ use crate::errors::OEmbedError;
 use crate::models::{OEmbedRequest, OEmbedResponse, ProviderConfig};
 use reqwest::Client;
 use scraper::{Html, Selector};
+use serde_json;
 use std::collections::HashMap;
 use url::Url;
 
@@ -144,7 +145,14 @@ impl Provider {
             .ok()?;
 
         if response.status().is_success() {
-            response.json::<OEmbedResponse>().await.ok()
+            // Get the response text first for logging
+            let response_text = response.text().await.ok()?;
+
+            // Try to parse the JSON using reqwest's built-in functionality
+            match serde_json::from_str::<OEmbedResponse>(&response_text) {
+                Ok(json) => Some(json),
+                Err(_) => None,
+            }
         } else {
             None
         }
