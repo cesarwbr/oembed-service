@@ -62,6 +62,40 @@ impl Provider {
             },
         );
 
+        providers.insert(
+            "soundcloud.com".to_string(),
+            ProviderConfig {
+                oembed_endpoint: Some(Url::parse("https://soundcloud.com/oembed").unwrap()),
+                url_patterns: vec!["soundcloud.com/".to_string()],
+            },
+        );
+
+        providers.insert(
+            "github.com".to_string(),
+            ProviderConfig {
+                oembed_endpoint: Some(Url::parse("https://github.com/api/oembed").unwrap()),
+                url_patterns: vec!["github.com/".to_string(), "gist.github.com/".to_string()],
+            },
+        );
+
+        providers.insert(
+            "flickr.com".to_string(),
+            ProviderConfig {
+                oembed_endpoint: Some(
+                    Url::parse("https://www.flickr.com/services/oembed").unwrap(),
+                ),
+                url_patterns: vec!["flickr.com/photos/".to_string(), "flic.kr/p/".to_string()],
+            },
+        );
+
+        providers.insert(
+            "medium.com".to_string(),
+            ProviderConfig {
+                oembed_endpoint: Some(Url::parse("https://medium.com/oembed").unwrap()),
+                url_patterns: vec!["medium.com/".to_string()],
+            },
+        );
+
         Self {
             providers,
             client: Client::new(),
