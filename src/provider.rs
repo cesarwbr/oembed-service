@@ -48,6 +48,20 @@ impl Provider {
             },
         );
 
+        providers.insert(
+            "spotify.com".to_string(),
+            ProviderConfig {
+                oembed_endpoint: Some(Url::parse("https://open.spotify.com/oembed").unwrap()),
+                url_patterns: vec![
+                    "open.spotify.com/track/".to_string(),
+                    "open.spotify.com/album/".to_string(),
+                    "open.spotify.com/playlist/".to_string(),
+                    "open.spotify.com/show/".to_string(),
+                    "open.spotify.com/episode/".to_string(),
+                ],
+            },
+        );
+
         Self {
             providers,
             client: Client::new(),
