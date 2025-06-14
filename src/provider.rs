@@ -1,6 +1,5 @@
 use crate::errors::OEmbedError;
 use crate::models::{OEmbedRequest, OEmbedResponse, ProviderConfig};
-use log::info;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use std::collections::HashMap;
