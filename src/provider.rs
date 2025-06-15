@@ -1,5 +1,7 @@
 use crate::errors::OEmbedError;
+use crate::firecrawl_service::FirecrawlService;
 use crate::models::{OEmbedRequest, OEmbedResponse, ProviderConfig};
+use log::debug;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde_json;
@@ -10,6 +12,7 @@ use url::Url;
 pub struct Provider {
     providers: HashMap<String, ProviderConfig>,
     client: Client,
+    firecrawl_service: FirecrawlService,
 }
 
 impl Provider {
@@ -98,7 +101,11 @@ impl Provider {
 
         Self {
             providers,
-            client: Client::new(),
+            client: Client::builder()
+                .redirect(reqwest::redirect::Policy::default())
+                .build()
+                .unwrap_or_else(|_| Client::new()),
+            firecrawl_service: FirecrawlService::new(),
         }
     }
 
@@ -112,7 +119,17 @@ impl Provider {
         let result = self.try_known_provider(request).await?;
 
         if result.is_none() {
-            return self.parse_html(&parsed_url).await.map(Some);
+            let html_result = self.parse_html(&parsed_url).await?;
+
+            // If we're missing essential fields, try firecrawl
+            if html_result.thumbnail_url.is_none() || html_result.title.is_none() {
+                match self.firecrawl_service.firecrawl_extract(&parsed_url).await {
+                    Ok(response) => return Ok(Some(response)),
+                    Err(_) => return Ok(Some(html_result)),
+                }
+            }
+
+            return Ok(Some(html_result));
         }
 
         Ok(result)
@@ -193,22 +210,35 @@ impl Provider {
     }
 
     async fn parse_html(&self, url: &Url) -> Result<OEmbedResponse, OEmbedError> {
+        debug!("Parsing HTML for URL: {}", url);
         // Validate and parse the URL
         let host = url
             .host_str()
             .ok_or_else(|| OEmbedError::InvalidUrl("No host in URL".to_string()))
             .map_err(|e| OEmbedError::InvalidUrl(e.to_string()))?;
 
-        // Featch the URL's HTML
+        debug!("Host: {}", host);
+
+        // Fetch the URL's HTML with redirect following enabled and proper headers
         let response = self
             .client
             .get(url.as_str())
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .header("Connection", "keep-alive")
             .send()
             .await
-            .map_err(|e| OEmbedError::InvalidUrl(e.to_string()))?;
+            .map_err(|e| OEmbedError::InvalidUrl(format!("Failed to fetch HTML: {}", e)))?;
+
+        debug!("Response: {:?}", response.status());
+        debug!("Response URL: {:?}", response.url());
 
         if !response.status().is_success() {
-            return Err(OEmbedError::InvalidUrl("No host in URL".to_string()));
+            return Err(OEmbedError::InvalidUrl(format!(
+                "Failed to fetch HTML: HTTP {}",
+                response.status()
+            )));
         }
 
         let response_text = response
