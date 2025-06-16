@@ -45,7 +45,7 @@ where
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OEmbedRequest {
     pub url: String,
 }
